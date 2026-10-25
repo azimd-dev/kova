@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Kova Mobile</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+:root{--bg:#0b0b14;--surf:#16162a;--surf2:#1f1f3a;--bord:#2c2c4d;--txt:#f1f1fa;--dim:#9a9ab8;--v:#8b5cf6;--p:#ec4899;--ok:#34d399;--ko:#f87171}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#app{display:flex;flex-direction:column;height:100dvh;max-width:720px;margin:0 auto}
+header{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--bord)}
+header b{font-size:18px;background:linear-gradient(90deg,var(--v),var(--p));-webkit-background-clip:text;background-clip:text;color:transparent}
+header small{color:var(--dim)}
+header .sp{flex:1}
+button{font:inherit;color:inherit;border:0;background:var(--surf2);padding:10px 14px;border-radius:12px;cursor:pointer}
+button.main{background:linear-gradient(90deg,var(--v),var(--p));color:#fff;font-weight:600}
+button.ghost{background:transparent;border:1px solid var(--bord)}
+button.danger{background:#3a1620;color:var(--ko)}
+button:disabled{opacity:.5}
+input,textarea{font:inherit;color:var(--txt);background:var(--surf);border:1px solid var(--bord);border-radius:12px;padding:12px;width:100%;outline:none}
+input:focus,textarea:focus{border-color:var(--v)}
+main{flex:1;min-height:0;position:relative}
+.page{position:absolute;inset:0;display:none;flex-direction:column}
+.page.on{display:flex}
+.scroll{flex:1;overflow-y:auto;padding:14px 16px;-webkit-overflow-scrolling:touch}
+.msg{max-width:88%;margin:0 0 10px;padding:10px 13px;border-radius:16px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere}
+.msg.u,.msg.moi{margin-left:auto;background:linear-gradient(135deg,var(--v),#6d3df0);border-bottom-right-radius:5px}
+.msg.k,.msg.lui{background:var(--surf);border:1px solid var(--bord);border-bottom-left-radius:5px}
+.msg.err{border-color:var(--ko);color:var(--ko)}
+.msg code,.msg pre{background:#0d0d1c;border-radius:8px}
+.msg pre{padding:10px;overflow-x:auto;margin:6px 0;white-space:pre}
+.msg code{padding:1px 5px}
+.bar{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom) );border-top:1px solid var(--bord);background:var(--bg)}
+.bar textarea{resize:none;max-height:120px;height:46px}
+.card{background:var(--surf);border:1px solid var(--bord);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .sp{flex:1}
+h3{margin:18px 0 8px;font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.tabs{display:flex;border-top:1px solid var(--bord);padding-bottom:env(safe-area-inset-bottom);background:var(--surf)}
+.tabs button{flex:1;border-radius:0;background:transparent;padding:14px 4px;color:var(--dim)}
+.tabs button.on{color:#fff;box-shadow:inset 0 2px 0 var(--v)}
+.dim{color:var(--dim)}
+.small{font-size:13px}
+.center{text-align:center}
+.pad{padding:18px 16px}
+.id{font-variant-numeric:tabular-nums;letter-spacing:.04em;color:var(--v);font-weight:700}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--surf2);border:1px solid var(--bord);padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><b>Kova</b><small>Mobile</small><span class="sp"></span><button class="ghost" id="bReg">Réglages</button></header>
+  <main>
+    <section class="page on" id="pIA">
+      <div class="scroll" id="iaLog"></div>
+      <div class="bar"><textarea id="iaIn" rows="1" placeholder="Écris à Kova…"></textarea><button class="main" id="iaSend">Envoyer</button></div>
+    </section>
+    <section class="page" id="pChat">
+      <div class="scroll" id="chatBody"></div>
+    </section>
+    <section class="page" id="pReg">
+      <div class="scroll">
+        <div class="card">
+          <b>Clé Groq (gratuite)</b>
+          <p class="dim small">Obtiens-la sur console.groq.com/keys. Elle reste uniquement dans ce téléphone.</p>
+          <input id="regKey" type="password" placeholder="gsk_..." autocomplete="off" autocapitalize="off" spellcheck="false">
+          <div class="row" style="margin-top:10px"><button class="main" id="regSave">Enregistrer</button><button class="ghost" id="regDel">Effacer la clé</button></div>
+        </div>
+        <div class="card">
+          <b>Conversation avec l'IA</b>
+          <p class="dim small">Elle est gardée seulement sur ce téléphone.</p>
+          <button class="danger" id="regClear">Effacer la conversation</button>
+        </div>
+        <div class="card">
+          <b>Chat Kova</b>
+          <p class="dim small">Ton numéro Kova du téléphone est différent de celui du PC pour l'instant. Les messages ne sont pas chiffrés de bout en bout et sont supprimés après environ 30 jours.</p>
+          <button class="danger" id="regDelChat">Supprimer mon compte Chat</button>
+        </div>
+        <p class="dim small center">Kova Mobile · Créé par Azim Demirel de la ZKA</p>
+      </div>
+    </section>
+  </main>
+  <nav class="tabs"><button id="tIA" class="on">IA Kova</button><button id="tChat">Chat Kova</button></nav>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+var SB_URL="https://kqzqcawrkdacbtlxoxqy.supabase.co";
+var SB_KEY="sb_publishable_NJqHD3iA3kiSWHELSmrkUQ_Os-QglGK";
+var GROQ="https://api.groq.com/openai/v1/chat/completions";
+var MODEL="openai/gpt-oss-120b", MODEL2="openai/gpt-oss-20b";
+var SYSTEM="Tu es Kova, un assistant IA competent, precis et honnete, cree par Azim Demirel de la ZKA. Tu fonctionnes avec le modele Z Royal Pro. Si on te demande precisement quel modele tourne en interne, sois honnete : Kova s'appuie sur un modele de langage ouvert heberge par Groq. Ne dis jamais que tu as ete developpe par OpenAI, Anthropic ou Google. Tu ne pretends jamais etre humain. N'invente jamais une adresse de site. Reponds dans la langue du dernier message de l'utilisateur (francais par defaut), de facon claire et concise. Tu es dans l'application Kova Mobile : tu ne peux pas ouvrir de sites ni lire de fichiers ici.";
+function $(id){return document.getElementById(id)}
+function st(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function toast(t){var e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove("on")},2600)}
+function md(s){ // markdown tres simple, sur du texte echappe
+  var parts=String(s).split("```");
+  return parts.map(function(p,i){
+    if(i%2===1){return "<pre>"+esc(p.replace(/^[a-zA-Z0-9+#-]*\n/,""))+"</pre>"}
+    return esc(p).replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>");
+  }).join("");
+}
+/* ---------- onglets ---------- */
+var onglet="IA";
+function show(n){
+  onglet=n;
+  ["IA","Chat","Reg"].forEach(function(x){$("p"+x).classList.toggle("on",x===n)});
+  $("tIA").classList.toggle("on",n==="IA");$("tChat").classList.toggle("on",n==="Chat"||n==="Reg"&&false);
+  if(n==="Chat")chatOuvrir(); else chatStop();
+  if(n==="Reg")$("regKey").value=st("kova_groq")?"••••••••":"";
+}
+$("tIA").onclick=function(){show("IA")};
+$("tChat").onclick=function(){show("Chat")};
+$("bReg").onclick=function(){show("Reg")};
+/* ---------- IA ---------- */
+var hist=[];try{hist=JSON.parse(st("kova_hist")||"[]")}catch(e){hist=[]}
+var occupe=false;
+function histSave(){st("kova_hist",JSON.stringify(hist.slice(-40)))}
+function iaDessiner(){
+  var l=$("iaLog");l.innerHTML="";
+  if(!hist.length){l.innerHTML='<div class="center dim pad"><p style="font-size:20px;margin:0 0 6px"><b>Salut ! Je suis Kova.</b></p><p class="small">Pose-moi une question. Il te faut d\'abord ta clé Groq gratuite dans Réglages.</p></div>'}
+  hist.forEach(function(m){var d=document.createElement("div");d.className="msg "+(m.role==="user"?"u":"k");d.innerHTML=md(m.content);l.appendChild(d)});
+  l.scrollTop=l.scrollHeight;
+}
+async function iaEnvoyer(){
+  if(occupe)return;
+  var t=$("iaIn").value.trim();if(!t)return;
+  var key=st("kova_groq");
+  if(!key){toast("Ajoute d'abord ta clé Groq dans Réglages.");show("Reg");return}
+  $("iaIn").value="";$("iaIn").style.height="46px";
+  hist.push({role:"user",content:t});histSave();iaDessiner();
+  occupe=true;$("iaSend").disabled=true;
+  var bulle=document.createElement("div");bulle.className="msg k";bulle.textContent="…";$("iaLog").appendChild(bulle);$("iaLog").scrollTop=$("iaLog").scrollHeight;
+  var txt="";
+  try{
+    var msgs=[{role:"system",content:SYSTEM}].concat(hist.slice(-20));
+    var rep=await groqAppel(key,MODEL,msgs);
+    if(rep.status===429||rep.status===503)rep=await groqAppel(key,MODEL2,msgs);
+    if(!rep.ok){
+      var e="";try{e=(await rep.json()).error.message||""}catch(x){}
+      if(rep.status===401)throw new Error("Clé Groq refusée. Vérifie-la dans Réglages.");
+      if(rep.status===429)throw new Error("Limite Groq atteinte pour le moment. Réessaie dans un instant.");
+      throw new Error(e?e.slice(0,200):"Erreur Groq ("+rep.status+").");
+    }
+    var rd=rep.body.getReader(),dec=new TextDecoder(),buf="";
+    for(;;){
+      var r=await rd.read();if(r.done)break;
+      buf+=dec.decode(r.value,{stream:true});
+      var lignes=buf.split("\n");buf=lignes.pop();
+      for(var i=0;i<lignes.length;i++){
+        var li=lignes[i].trim();if(li.indexOf("data:")!==0)continue;
+        var d=li.slice(5).trim();if(d==="[DONE]")continue;
+        try{var j=JSON.parse(d);var c=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content;if(c){txt+=c;bulle.innerHTML=md(txt);$("iaLog").scrollTop=$("iaLog").scrollHeight}}catch(x){}
+      }
+    }
+    if(!txt)throw new Error("Kova n'a pas répondu. Réessaie.");
+    hist.push({role:"assistant",content:txt});histSave();
+  }catch(e){
+    var msg=(e&&e.message)||"Erreur";
+    if(/Failed to fetch|NetworkError|Load failed/i.test(msg))msg="Impossible de joindre Groq. Vérifie ta connexion internet.";
+    bulle.className="msg k err";bulle.textContent=msg;
+    if(txt){hist.push({role:"assistant",content:txt});histSave()}
+  }
+  occupe=false;$("iaSend").disabled=false;
+}
+function groqAppel(key,model,msgs){
+  return fetch(GROQ,{method:"POST",headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
+    body:JSON.stringify({model:model,messages:msgs,stream:true,reasoning_effort:"low",max_completion_tokens:4000})});
+}
+$("iaSend").onclick=iaEnvoyer;
+$("iaIn").addEventListener("input",function(){this.style.height="46px";this.style.height=Math.min(this.scrollHeight,120)+"px"});
+/* ---------- reglages ---------- */
+$("regSave").onclick=function(){
+  var v=$("regKey").value.trim();
+  if(!v||v.indexOf("•")>=0){toast("Colle ta clé Groq (elle commence par gsk_).");return}
+  if(v.indexOf("gsk_")!==0){toast("Une clé Groq commence par gsk_.");return}
+  st("kova_groq",v);$("regKey").value="••••••••";toast("Clé enregistrée.");
+};
+$("regDel").onclick=function(){st("kova_groq",null);$("regKey").value="";toast("Clé effacée.")};
+$("regClear").onclick=function(){if(confirm("Effacer la conversation avec l'IA ?")){hist=[];histSave();iaDessiner();toast("Conversation effacée.")}};
+$("regDelChat").onclick=async function(){
+  if(!confirm("Supprimer ton compte Chat Kova et tous tes messages ?"))return;
+  try{await rpc("supprimer_mon_compte");st("kova_sb",null);st("kova_nom",null);toast("Compte Chat supprimé.")}catch(e){toast(e.message)}
+};
+/* ---------- chat : acces serveur ---------- */
+var sess=null;
+function sbEnt(j){var h={"apikey":SB_KEY,"Content-Type":"application/json"};if(j)h["Authorization"]="Bearer "+j;return h}
+function garder(d){sess={access:d.access_token,refresh:d.refresh_token,exp:Date.now()+(d.expires_in||3600)*1000};st("kova_sb",sess.refresh)}
+async function jeton(forcer){
+  if(sess&&!forcer&&sess.exp>Date.now()+60000)return sess.access;
+  var refresh=(sess&&sess.refresh)||st("kova_sb");
+  try{
+    if(refresh){
+      var r=await fetch(SB_URL+"/auth/v1/token?grant_type=refresh_token",{method:"POST",headers:sbEnt(),body:JSON.stringify({refresh_token:refresh})});
+      if(r.status===200){garder(await r.json());return sess.access}
+      if(r.status>=500||r.status===429)throw new Error("Le serveur du chat ne répond pas pour le moment. Réessaie dans un instant.");
+    }
+    var r2=await fetch(SB_URL+"/auth/v1/signup",{method:"POST",headers:sbEnt(),body:"{}"});
+    if(r2.status!==200&&r2.status!==201)throw new Error("Le chat n'est pas disponible pour le moment.");
+    garder(await r2.json());return sess.access;
+  }catch(e){
+    if(e instanceof TypeError)throw new Error("Impossible de joindre le chat. Vérifie ta connexion internet.");
+    throw e;
+  }
+}
+async function rpc(fn,args){
+  var r=null;
+  for(var essai=0;essai<2;essai++){
+    var j=await jeton(essai===1);
+    try{r=await fetch(SB_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:sbEnt(j),body:JSON.stringify(args||{})})}
+    catch(e){throw new Error("Impossible de joindre le chat. Vérifie ta connexion internet.")}
+    if(r.status===401&&essai===0)continue;break;
+  }
+  if(r.status===200||r.status===201){var t=await r.text();return t?JSON.parse(t):null}
+  if(r.status===204)return null;
+  var msg="";try{msg=String((await r.json()).message||"")}catch(e){}
+  if(r.status>=500||!msg)throw new Error("Le serveur du chat est indisponible (il est peut-être en pause). Réessaie plus tard.");
+  throw new Error(msg.slice(0,200));
+}
+function idOk(v){var n=parseInt(String(v).replace(/\D/g,""),10);if(!(n>=100000000&&n<=999999999))throw new Error("Un numéro Kova a 9 chiffres (ex. 123 456 789).");return n}
+function fmtId(n){var s=String(n);return s.slice(0,3)+" "+s.slice(3,6)+" "+s.slice(6)}
+/* ---------- chat : ecrans ---------- */
+var profil=null,autre=null,minuteur=null,dernier=0;
+function chatStop(){clearInterval(minuteur);minuteur=null}
+async function chatOuvrir(){
+  chatStop();autre=null;
+  var b=$("chatBody");b.innerHTML='<p class="dim center pad">Connexion…</p>';
+  try{
+    var p=await rpc("mon_profil");profil=p&&p[0]?p[0]:null;
+    if(!profil){ecranProfil();return}
+    await ecranContacts();
+    minuteur=setInterval(function(){if(onglet==="Chat"&&!autre)ecranContacts(true)},8000);
+  }catch(e){b.innerHTML='<div class="card"><b>Chat indisponible</b><p class="dim small">'+esc(e.message)+'</p><button class="main" id="reess">Réessayer</button></div>';$("reess").onclick=chatOuvrir}
+}
+function ecranProfil(){
+  var b=$("chatBody");
+  b.innerHTML='<div class="card"><b>Bienvenue dans Chat Kova</b><p class="dim small">Choisis un nom. Tu recevras un numéro à 9 chiffres que tu pourras donner à tes amis.</p><input id="nomIn" maxlength="30" placeholder="Ton nom" autocomplete="off"><div class="row" style="margin-top:10px"><button class="main" id="nomOk">Créer mon profil</button></div></div>';
+  $("nomOk").onclick=async function(){
+    var n=$("nomIn").value.trim();if(!n){toast("Écris un nom.");return}
+    try{await rpc("creer_profil",{p_nom:n});chatOuvrir()}catch(e){toast(e.message)}
+  };
+}
+async function ecranContacts(silencieux){
+  var cs=await rpc("mes_contacts")||[];
+  if(autre)return;
+  var rec=cs.filter(function(c){return c.statut!=="accepte"&&c.sens==="recue"});
+  var env=cs.filter(function(c){return c.statut!=="accepte"&&c.sens==="envoyee"});
+  var ok=cs.filter(function(c){return c.statut==="accepte"});
+  var h='<div class="card"><div class="row"><div><b>'+esc(profil.nom)+'</b><div class="small dim">Ton numéro Kova</div></div><span class="sp"></span><span class="id" style="font-size:20px">'+fmtId(profil.kova_id)+'</span></div></div>';
+  h+='<h3>Ajouter quelqu\'un</h3><div class="row" style="flex-wrap:nowrap"><input id="addIn" inputmode="numeric" placeholder="Numéro à 9 chiffres" style="flex:1;width:auto"><button class="main" id="addOk">Demander</button></div>';
+  if(rec.length){h+='<h3>Demandes reçues</h3>';rec.forEach(function(c){h+='<div class="card"><b>'+esc(c.nom)+'</b> <span class="dim small">'+fmtId(c.kova_id)+'</span><div class="row" style="margin-top:8px"><button class="main" data-a="accepter" data-i="'+c.kova_id+'">Accepter</button><button data-a="refuser" data-i="'+c.kova_id+'">Refuser</button><button class="danger" data-a="bloquer" data-i="'+c.kova_id+'">Bloquer</button></div></div>'})}
+  h+='<h3>Mes contacts</h3>';
+  if(!ok.length)h+='<p class="dim small">Aucun contact pour le moment. Ajoute quelqu\'un avec son numéro.</p>';
+  ok.forEach(function(c){h+='<div class="card row" data-o="'+c.kova_id+'" data-n="'+esc(c.nom)+'" style="cursor:pointer"><div><b>'+esc(c.nom)+'</b><div class="small dim">'+fmtId(c.kova_id)+'</div></div><span class="sp"></span><span class="dim">›</span></div>'});
+  if(env.length){h+='<h3>Demandes envoyées</h3>';env.forEach(function(c){h+='<div class="card row"><div><b>'+esc(c.nom)+'</b><div class="small dim">En attente de réponse</div></div></div>'})}
+  var b=$("chatBody"),sv=b.scrollTop,aIn=$("addIn")?$("addIn").value:"";
+  if(silencieux&&document.activeElement&&document.activeElement.id==="addIn")return;
+  b.innerHTML=h;b.scrollTop=sv;if(aIn)$("addIn").value=aIn;
+  $("addOk").onclick=async function(){
+    try{
+      var r=await rpc("demander_contact",{p_kova_id:idOk($("addIn").value)});
+      toast({ok:"Demande envoyée : la personne doit l'accepter.",introuvable:"Numéro introuvable ou demande impossible.",trop_d_essais:"Trop d'essais : réessaie dans une heure."}[r]||"Demande impossible.");
+      ecranContacts();
+    }catch(e){toast(e.message)}
+  };
+  b.querySelectorAll("[data-a]").forEach(function(x){x.onclick=async function(){
+    try{await rpc("repondre",{p_kova_id:Number(x.dataset.i),p_action:x.dataset.a});ecranContacts()}catch(e){toast(e.message)}}});
+  b.querySelectorAll("[data-o]").forEach(function(x){x.onclick=function(){ecranConv(Number(x.dataset.o),x.dataset.n)}});
+}
+async function ecranConv(id,nom){
+  chatStop();autre={id:id,nom:nom};dernier=0;
+  var b=$("chatBody");
+  b.innerHTML='<div style="display:flex;flex-direction:column;height:100%;margin:-14px -16px"><div class="row" style="padding:10px 12px;border-bottom:1px solid var(--bord)"><button id="back">‹ Retour</button><b>'+esc(nom)+'</b><span class="sp"></span><button class="ghost" id="menu">⋯</button></div><div class="scroll" id="conv"></div><div class="bar"><textarea id="cIn" rows="1" maxlength="500" placeholder="Message…"></textarea><button class="main" id="cSend">Envoyer</button></div></div>';
+  $("back").onclick=chatOuvrir;
+  $("cSend").onclick=envoyer;
+  $("cIn").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();envoyer()}});
+  $("menu").onclick=function(){
+    var c=prompt("Écris : 1 pour signaler, 2 pour retirer ce contact, 3 pour bloquer.");
+    if(c==="1"){var r=prompt("Explique en quelques mots :");if(r)rpc("signaler",{p_kova_id:id,p_raison:r}).then(function(x){toast(x==="ok"?"Signalement envoyé.":x==="trop_de_signalements"?"Trop de signalements aujourd'hui.":"Signalement impossible.")}).catch(function(e){toast(e.message)})}
+    else if(c==="2"||c==="3"){if(confirm(c==="2"?"Retirer ce contact ?":"Bloquer cette personne ?"))rpc("repondre",{p_kova_id:id,p_action:c==="2"?"retirer":"bloquer"}).then(chatOuvrir).catch(function(e){toast(e.message)})}
+  };
+  await lire();
+  minuteur=setInterval(function(){if(onglet==="Chat"&&autre)lire()},4000);
+}
+async function lire(){
+  if(!autre)return;
+  try{
+    var ms=await rpc("mes_messages",{p_kova_id:autre.id,p_apres:dernier})||[];
+    var c=$("conv");if(!c||!ms.length)return;
+    var bas=c.scrollHeight-c.scrollTop-c.clientHeight<80;
+    ms.forEach(function(m){dernier=Math.max(dernier,m.id);var d=document.createElement("div");d.className="msg "+(m.de_moi?"moi":"lui");d.textContent=m.texte;c.appendChild(d)});
+    if(bas||dernier===ms[ms.length-1].id&&c.children.length===ms.length)c.scrollTop=c.scrollHeight;
+  }catch(e){}
+}
+async function envoyer(){
+  var t=$("cIn").value.trim();if(!t||!autre)return;
+  try{
+    var r=await rpc("envoyer_message",{p_kova_id:autre.id,p_texte:t});
+    if(r!=="ok"){toast(r==="trop_vite"?"Doucement : trop de messages en une minute.":"Message refusé : vous n'êtes plus en contact.");return}
+    $("cIn").value="";await lire();$("conv").scrollTop=$("conv").scrollHeight;
+  }catch(e){toast(e.message)}
+}
+iaDessiner();
+</script>
+</body>
+</html>
