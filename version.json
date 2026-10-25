@@ -1,0 +1,7 @@
+{
+  "build": 18,
+  "version": "1.1 Ultimate Version 1",
+  "notes": "Nouveau : Chat Kova (numero a 9 chiffres, demandes a accepter), bulle Kova en bas de l'ecran (une barre pour tout demander), reglages de couleur et de securite, moins de limites Groq.",
+  "download": "https://github.com/azimd-dev/kova/releases/latest/download/Kova.exe",
+  "sha256": "1594c235f7a805c0672cef4287c272d4b5ab3f160a37b46e171d2625b2907b77"
+}
