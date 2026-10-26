@@ -34,6 +34,17 @@ main{flex:1;min-height:0;position:relative}
 .msg.u,.msg.moi{margin-left:auto;background:linear-gradient(135deg,var(--v),#6d3df0);border-bottom-right-radius:5px}
 .msg.k,.msg.lui{background:var(--surf);border:1px solid var(--bord);border-bottom-left-radius:5px}
 .msg.err{border-color:var(--ko);color:var(--ko)}
+.msg.k{white-space:normal}
+.msg.k p,.msg.k h4,.msg.k ul,.msg.k ol{margin:0 0 8px}
+.msg.k>*:last-child{margin-bottom:0}
+.msg.k h4{font-size:16px;color:#fff}
+.msg.k ul,.msg.k ol{padding-left:22px}
+.msg.k hr{border:0;border-top:1px solid var(--bord);margin:8px 0}
+.tw{overflow-x:auto;margin:6px 0}
+.msg.k table{border-collapse:collapse;font-size:14px}
+.msg.k th,.msg.k td{border:1px solid var(--bord);padding:5px 8px;text-align:left;vertical-align:top}
+.msg.k th{background:var(--surf2)}
+.msg.err{white-space:pre-wrap}
 .msg code,.msg pre{background:#0d0d1c;border-radius:8px}
 .msg pre{padding:10px;overflow-x:auto;margin:6px 0;white-space:pre}
 .msg code{padding:1px 5px}
@@ -97,16 +108,40 @@ var SB_URL="https://kqzqcawrkdacbtlxoxqy.supabase.co";
 var SB_KEY="sb_publishable_NJqHD3iA3kiSWHELSmrkUQ_Os-QglGK";
 var GROQ="https://api.groq.com/openai/v1/chat/completions";
 var MODEL="openai/gpt-oss-120b", MODEL2="openai/gpt-oss-20b";
-var SYSTEM="Tu es Kova, un assistant IA competent, precis et honnete, cree par Azim Demirel de la ZKA. Tu fonctionnes avec le modele Z Royal Pro. Si on te demande precisement quel modele tourne en interne, sois honnete : Kova s'appuie sur un modele de langage ouvert heberge par Groq. Ne dis jamais que tu as ete developpe par OpenAI, Anthropic ou Google. Tu ne pretends jamais etre humain. N'invente jamais une adresse de site. Reponds dans la langue du dernier message de l'utilisateur (francais par defaut), de facon claire et concise. Tu es dans l'application Kova Mobile : tu ne peux pas ouvrir de sites ni lire de fichiers ici.";
+var SYSTEM="Tu es Kova, un assistant IA competent, precis et honnete, cree par Azim Demirel de la ZKA. Tu fonctionnes avec le modele Z Royal Pro. Le nom Kova vient du seau d'Azim, qui s'appelait Kova et qui a ete vole par un enfant ; Azim a choisi ce nom pour l'honorer. N'invente JAMAIS d'autre signification ni d'acronyme pour le nom Kova. Si on te demande precisement quel modele tourne en interne, sois honnete : Kova s'appuie sur un modele de langage ouvert heberge par Groq. Ne dis jamais que tu as ete developpe par OpenAI, Anthropic ou Google. Tu ne pretends jamais etre humain. N'invente jamais une adresse de site. Reponds dans la langue du dernier message de l'utilisateur (francais par defaut), de facon claire et concise. Tu es dans l'application Kova Mobile : tu ne peux pas ouvrir de sites ni lire de fichiers ici.";
 function $(id){return document.getElementById(id)}
 function st(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}}
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function toast(t){var e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove("on")},2600)}
-function md(s){ // markdown tres simple, sur du texte echappe
-  var parts=String(s).split("```");
-  return parts.map(function(p,i){
-    if(i%2===1){return "<pre>"+esc(p.replace(/^[a-zA-Z0-9+#-]*\n/,""))+"</pre>"}
-    return esc(p).replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>");
+function inl(t){
+  return esc(t).replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>").replace(/(^|[\s(])\*([^*\s][^*\n]*?)\*(?=$|[\s).,;:!?])/g,"$1<i>$2</i>");
+}
+function cells(l){return l.trim().replace(/^\|/,"").replace(/\|$/,"").split("|").map(function(c){return c.trim()})}
+function bloc(txt){
+  var L=txt.split("\n"),o="",i=0;
+  while(i<L.length){
+    var l=L[i],m;
+    if(!l.trim()){i++;continue}
+    if((m=l.match(/^\s*(#{1,6})\s+(.*)$/))){o+='<h4>'+inl(m[2])+'</h4>';i++;continue}
+    if(/^\s*([-*_])\1{2,}\s*$/.test(l)){o+="<hr>";i++;continue}
+    if(/^\s*\|/.test(l)&&i+1<L.length&&/^\s*\|?\s*:?-{2,}/.test(L[i+1])){
+      var h=cells(l);i+=2;var rows=[];
+      while(i<L.length&&/^\s*\|/.test(L[i])){rows.push(cells(L[i]));i++}
+      o+='<div class="tw"><table><tr>'+h.map(function(c){return"<th>"+inl(c)+"</th>"}).join("")+"</tr>"+rows.map(function(r){return"<tr>"+r.map(function(c){return"<td>"+inl(c)+"</td>"}).join("")+"</tr>"}).join("")+"</table></div>";continue;
+    }
+    if(/^\s*([-*•])\s+/.test(l)){var it=[];while(i<L.length&&/^\s*([-*•])\s+/.test(L[i])){it.push(L[i].replace(/^\s*([-*•])\s+/,""));i++}o+="<ul>"+it.map(function(x){return"<li>"+inl(x)+"</li>"}).join("")+"</ul>";continue}
+    if(/^\s*\d+[.)]\s+/.test(l)){var it2=[];while(i<L.length&&/^\s*\d+[.)]\s+/.test(L[i])){it2.push(L[i].replace(/^\s*\d+[.)]\s+/,""));i++}o+="<ol>"+it2.map(function(x){return"<li>"+inl(x)+"</li>"}).join("")+"</ol>";continue}
+    var par=[];
+    while(i<L.length&&L[i].trim()&&!/^\s*(#{1,6}\s|\||([-*•]|\d+[.)])\s+)/.test(L[i])&&!/^\s*([-*_])\1{2,}\s*$/.test(L[i])){par.push(inl(L[i]));i++}
+    if(!par.length){par.push(inl(L[i]));i++}
+    o+="<p>"+par.join("<br>")+"</p>";
+  }
+  return o;
+}
+function md(s){
+  return String(s).split("```").map(function(p,i){
+    if(i%2===1)return "<pre>"+esc(p.replace(/^[a-zA-Z0-9+#-]*\n/,""))+"</pre>";
+    return bloc(p);
   }).join("");
 }
 /* ---------- onglets ---------- */
