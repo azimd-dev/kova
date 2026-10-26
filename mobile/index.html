@@ -50,6 +50,9 @@ main{flex:1;min-height:0;position:relative}
 .msg code{padding:1px 5px}
 .bar{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom) );border-top:1px solid var(--bord);background:var(--bg)}
 .bar textarea{resize:none;max-height:120px;height:46px}
+.sub{padding:8px 12px;border-bottom:1px solid var(--bord)}
+.msg img{display:block;width:100%;border-radius:12px;margin:2px 0 6px;background:var(--surf2);min-height:120px}
+.msg a{color:#c4b5fd}
 .card{background:var(--surf);border:1px solid var(--bord);border-radius:14px;padding:12px 14px;margin-bottom:10px}
 .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .row .sp{flex:1}
@@ -71,8 +74,12 @@ h3{margin:18px 0 8px;font-size:13px;color:var(--dim);text-transform:uppercase;le
   <header><b>Kova</b><small>Mobile</small><span class="sp"></span><button class="ghost" id="bReg">Réglages</button></header>
   <main>
     <section class="page on" id="pIA">
+      <div class="row sub"><button id="iaNew">＋ Nouvelle</button><button class="ghost" id="iaHist">Historique</button></div>
       <div class="scroll" id="iaLog"></div>
-      <div class="bar"><textarea id="iaIn" rows="1" placeholder="Écris à Kova…"></textarea><button class="main" id="iaSend">Envoyer</button></div>
+      <div class="bar"><textarea id="iaIn" rows="1" placeholder="Écris à Kova…"></textarea><button class="ghost" id="iaImg" title="Créer une image">🖼</button><button class="main" id="iaSend">Envoyer</button></div>
+    </section>
+    <section class="page" id="pHist">
+      <div class="scroll" id="histBody"></div>
     </section>
     <section class="page" id="pChat">
       <div class="scroll" id="chatBody"></div>
@@ -86,9 +93,9 @@ h3{margin:18px 0 8px;font-size:13px;color:var(--dim);text-transform:uppercase;le
           <div class="row" style="margin-top:10px"><button class="main" id="regSave">Enregistrer</button><button class="ghost" id="regDel">Effacer la clé</button></div>
         </div>
         <div class="card">
-          <b>Conversation avec l'IA</b>
-          <p class="dim small">Elle est gardée seulement sur ce téléphone.</p>
-          <button class="danger" id="regClear">Effacer la conversation</button>
+          <b>Conversations avec l'IA</b>
+          <p class="dim small">Elles sont gardées seulement sur ce téléphone.</p>
+          <button class="danger" id="regClear">Tout effacer</button>
         </div>
         <div class="card">
           <b>Chat Kova</b>
@@ -148,8 +155,8 @@ function md(s){
 var onglet="IA";
 function show(n){
   onglet=n;
-  ["IA","Chat","Reg"].forEach(function(x){$("p"+x).classList.toggle("on",x===n)});
-  $("tIA").classList.toggle("on",n==="IA");$("tChat").classList.toggle("on",n==="Chat"||n==="Reg"&&false);
+  ["IA","Chat","Reg","Hist"].forEach(function(x){$("p"+x).classList.toggle("on",x===n)});
+  $("tIA").classList.toggle("on",n==="IA"||n==="Hist");$("tChat").classList.toggle("on",n==="Chat"||n==="Reg"&&false);
   if(n==="Chat")chatOuvrir(); else chatStop();
   if(n==="Reg")$("regKey").value=st("kova_groq")?"••••••••":"";
 }
@@ -157,13 +164,45 @@ $("tIA").onclick=function(){show("IA")};
 $("tChat").onclick=function(){show("Chat")};
 $("bReg").onclick=function(){show("Reg")};
 /* ---------- IA ---------- */
-var hist=[];try{hist=JSON.parse(st("kova_hist")||"[]")}catch(e){hist=[]}
-var occupe=false;
-function histSave(){st("kova_hist",JSON.stringify(hist.slice(-40)))}
+var convs=[],cur=null,hist=[],occupe=false;
+function chargerConvs(){
+  try{convs=JSON.parse(st("kova_convs")||"[]")}catch(e){convs=[]}
+  if(!Array.isArray(convs))convs=[];
+  if(!convs.length){var a=[];try{a=JSON.parse(st("kova_hist")||"[]")}catch(e){}convs=[{id:Date.now(),titre:"",msgs:a,t:Date.now()}]}
+  var id=st("kova_cur");cur=convs.filter(function(c){return String(c.id)===id})[0]||convs[convs.length-1];hist=cur.msgs=cur.msgs||[];
+}
+function histSave(){
+  hist=hist.slice(-60);cur.msgs=hist;cur.t=Date.now();
+  if(!cur.titre){var u=hist.filter(function(m){return m.role==="user"})[0];if(u)cur.titre=u.content.replace(/^Crée une image : /,"🖼 ").slice(0,40)}
+  convs=convs.sort(function(a,b){return a.t-b.t}).slice(-30);
+  st("kova_convs",JSON.stringify(convs));st("kova_cur",String(cur.id));
+}
+function nouvelleConv(){
+  if(!hist.length){toast("Tu es déjà dans une nouvelle conversation.");return}
+  cur={id:Date.now(),titre:"",msgs:[],t:Date.now()};convs.push(cur);hist=cur.msgs;histSave();iaDessiner();show("IA");
+}
+function ecranHist(){
+  show("Hist");var b=$("histBody"),h='<div class="row" style="margin-bottom:10px"><button id="hBack">‹ Retour</button><span class="sp"></span><button class="main" id="hNew">＋ Nouvelle</button></div>';
+  var l=convs.filter(function(c){return c.msgs&&c.msgs.length}).sort(function(a,b){return b.t-a.t});
+  if(!l.length)h+='<p class="dim small">Aucune conversation pour le moment.</p>';
+  l.forEach(function(c){h+='<div class="card row"><div style="flex:1;min-width:0;cursor:pointer" data-o="'+c.id+'"><b>'+esc(c.titre||"Conversation")+'</b><div class="small dim">'+new Date(c.t).toLocaleString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+'</div></div><button class="danger" data-d="'+c.id+'">Suppr.</button></div>'});
+  b.innerHTML=h;
+  $("hBack").onclick=function(){show("IA")};$("hNew").onclick=nouvelleConv;
+  b.querySelectorAll("[data-o]").forEach(function(x){x.onclick=function(){cur=convs.filter(function(c){return String(c.id)===x.dataset.o})[0];hist=cur.msgs;st("kova_cur",String(cur.id));iaDessiner();show("IA")}});
+  b.querySelectorAll("[data-d]").forEach(function(x){x.onclick=function(){if(!confirm("Supprimer cette conversation ?"))return;
+    convs=convs.filter(function(c){return String(c.id)!==x.dataset.d});
+    if(!convs.length)convs=[{id:Date.now(),titre:"",msgs:[],t:Date.now()}];
+    if(String(cur.id)===x.dataset.d){cur=convs[convs.length-1];hist=cur.msgs}
+    st("kova_convs",JSON.stringify(convs));st("kova_cur",String(cur.id));ecranHist();iaDessiner()}});
+}
+$("iaNew").onclick=nouvelleConv;$("iaHist").onclick=ecranHist;
+chargerConvs();
 function iaDessiner(){
   var l=$("iaLog");l.innerHTML="";
   if(!hist.length){l.innerHTML='<div class="center dim pad"><p style="font-size:20px;margin:0 0 6px"><b>Salut ! Je suis Kova.</b></p><p class="small">Pose-moi une question. Il te faut d\'abord ta clé Groq gratuite dans Réglages.</p></div>'}
-  hist.forEach(function(m){var d=document.createElement("div");d.className="msg "+(m.role==="user"?"u":"k");d.innerHTML=md(m.content);l.appendChild(d)});
+  hist.forEach(function(m){var d=document.createElement("div");d.className="msg "+(m.role==="user"?"u":"k");
+    if(m.img){d.innerHTML='<img src="'+esc(m.img)+'" alt="Image créée par Kova" loading="lazy"><a href="'+esc(m.img)+'" target="_blank" rel="noopener">Ouvrir l\'image</a>'}
+    else d.innerHTML=md(m.content);l.appendChild(d)});
   l.scrollTop=l.scrollHeight;
 }
 async function iaEnvoyer(){
@@ -177,7 +216,7 @@ async function iaEnvoyer(){
   var bulle=document.createElement("div");bulle.className="msg k";bulle.textContent="…";$("iaLog").appendChild(bulle);$("iaLog").scrollTop=$("iaLog").scrollHeight;
   var txt="";
   try{
-    var msgs=[{role:"system",content:SYSTEM}].concat(hist.slice(-20));
+    var msgs=[{role:"system",content:SYSTEM}].concat(hist.slice(-20).map(function(m){return{role:m.role,content:m.content}}));
     var rep=await groqAppel(key,MODEL,msgs);
     if(rep.status===429||rep.status===503)rep=await groqAppel(key,MODEL2,msgs);
     if(!rep.ok){
@@ -211,6 +250,30 @@ function groqAppel(key,model,msgs){
   return fetch(GROQ,{method:"POST",headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
     body:JSON.stringify({model:model,messages:msgs,stream:true,reasoning_effort:"low",max_completion_tokens:4000})});
 }
+async function iaImage(){
+  if(occupe)return;
+  var t=$("iaIn").value.trim();
+  if(!t){toast("Écris d'abord ce que tu veux comme image, puis appuie sur 🖼.");return}
+  var key=st("kova_groq");
+  if(!key){toast("Ajoute d'abord ta clé Groq dans Réglages.");show("Reg");return}
+  $("iaIn").value="";$("iaIn").style.height="46px";
+  hist.push({role:"user",content:"Crée une image : "+t});histSave();iaDessiner();
+  occupe=true;$("iaSend").disabled=true;$("iaImg").disabled=true;
+  var bulle=document.createElement("div");bulle.className="msg k";bulle.textContent="Kova dessine… (ça peut prendre 10 à 30 secondes)";$("iaLog").appendChild(bulle);$("iaLog").scrollTop=$("iaLog").scrollHeight;
+  var en=t;
+  try{
+    var r=await fetch(GROQ,{method:"POST",headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},body:JSON.stringify({model:MODEL2,reasoning_effort:"low",temperature:0.4,max_completion_tokens:400,
+      messages:[{role:"system",content:"Tu traduis et enrichis des descriptions d'images en un prompt ANGLAIS de haute qualite pour un generateur d'images. Traduis parfaitement le sens, quelle que soit la langue, puis enrichis avec des details visuels utiles (style, lumiere, composition, ambiance) SANS changer l'intention de la personne. Reponds UNIQUEMENT avec le prompt final en anglais, sans explication, sans guillemets, sur une seule ligne."},{role:"user",content:t}]})});
+    if(r.status===401)throw new Error("Clé Groq refusée. Vérifie-la dans Réglages.");
+    if(r.ok){var j=await r.json();var c=j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;if(c)en=c.replace(/["\n]/g," ").trim().slice(0,600)}
+  }catch(e){if(e.message&&e.message.indexOf("Clé")===0){bulle.className="msg k err";bulle.textContent=e.message;occupe=false;$("iaSend").disabled=false;$("iaImg").disabled=false;return}}
+  var url="https://image.pollinations.ai/prompt/"+encodeURIComponent(en)+"?model=flux&width=1024&height=1024&seed="+Math.floor(Math.random()*999999)+"&nologo=true&enhance=true";
+  var ok=await new Promise(function(res){var im=new Image();im.onload=function(){res(true)};im.onerror=function(){res(false)};setTimeout(function(){res(false)},90000);im.src=url});
+  if(ok){hist.push({role:"assistant",content:"[Image générée : "+t+"]",img:url});histSave();iaDessiner()}
+  else{bulle.className="msg k err";bulle.textContent="L'image n'a pas pu être créée (le service d'images est occupé). Réessaie dans un moment."}
+  occupe=false;$("iaSend").disabled=false;$("iaImg").disabled=false;
+}
+$("iaImg").onclick=iaImage;
 $("iaSend").onclick=iaEnvoyer;
 $("iaIn").addEventListener("input",function(){this.style.height="46px";this.style.height=Math.min(this.scrollHeight,120)+"px"});
 /* ---------- reglages ---------- */
@@ -221,7 +284,7 @@ $("regSave").onclick=function(){
   st("kova_groq",v);$("regKey").value="••••••••";toast("Clé enregistrée.");
 };
 $("regDel").onclick=function(){st("kova_groq",null);$("regKey").value="";toast("Clé effacée.")};
-$("regClear").onclick=function(){if(confirm("Effacer la conversation avec l'IA ?")){hist=[];histSave();iaDessiner();toast("Conversation effacée.")}};
+$("regClear").onclick=function(){if(confirm("Effacer toutes les conversations avec l'IA ?")){convs=[];st("kova_convs",null);st("kova_hist",null);chargerConvs();histSave();iaDessiner();toast("Conversations effacées.")}};
 $("regDelChat").onclick=async function(){
   if(!confirm("Supprimer ton compte Chat Kova et tous tes messages ?"))return;
   try{await rpc("supprimer_mon_compte");st("kova_sb",null);st("kova_nom",null);toast("Compte Chat supprimé.")}catch(e){toast(e.message)}
