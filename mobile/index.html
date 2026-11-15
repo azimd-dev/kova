@@ -98,6 +98,12 @@ h3{margin:18px 0 8px;font-size:13px;color:var(--dim);text-transform:uppercase;le
           <button class="danger" id="regClear">Tout effacer</button>
         </div>
         <div class="card">
+          <b>Notifications du Chat</b>
+          <p class="dim small" id="notifEtat"></p>
+          <div class="row"><button class="main" id="regNotif">Activer</button><button class="ghost" id="regNotifOff">Désactiver</button></div>
+          <p class="dim small">Tu es prévenu quand Kova est ouvert ou récemment utilisé. Quand l'application est complètement fermée, le téléphone peut ne rien afficher.</p>
+        </div>
+        <div class="card">
           <b>Chat Kova</b>
           <p class="dim small">Ton numéro Kova du téléphone est différent de celui du PC pour l'instant. Les messages ne sont pas chiffrés de bout en bout et sont supprimés après environ 30 jours.</p>
           <button class="danger" id="regDelChat">Supprimer mon compte Chat</button>
@@ -158,7 +164,7 @@ function show(n){
   ["IA","Chat","Reg","Hist"].forEach(function(x){$("p"+x).classList.toggle("on",x===n)});
   $("tIA").classList.toggle("on",n==="IA"||n==="Hist");$("tChat").classList.toggle("on",n==="Chat"||n==="Reg"&&false);
   if(n==="Chat")chatOuvrir(); else chatStop();
-  if(n==="Reg")$("regKey").value=st("kova_groq")?"••••••••":"";
+  if(n==="Reg"){$("regKey").value=st("kova_groq")?"••••••••":"";notifEtat()}
 }
 $("tIA").onclick=function(){show("IA")};
 $("tChat").onclick=function(){show("Chat")};
@@ -326,6 +332,57 @@ async function rpc(fn,args){
 }
 function idOk(v){var n=parseInt(String(v).replace(/\D/g,""),10);if(!(n>=100000000&&n<=999999999))throw new Error("Un numéro Kova a 9 chiffres (ex. 123 456 789).");return n}
 function fmtId(n){var s=String(n);return s.slice(0,3)+" "+s.slice(3,6)+" "+s.slice(6)}
+/* ---------- notifications ---------- */
+var swReg=null,nonlus={},notifOn=st("kova_notif")==="1",vu=st("kova_vu");vu=vu===null?null:Number(vu);
+if("serviceWorker" in navigator){try{navigator.serviceWorker.register("sw.js").then(function(r){swReg=r}).catch(function(){})}catch(e){}}
+function notifEtat(){
+  var t;
+  if(!("Notification" in window))t="Ce navigateur ne gère pas les notifications.";
+  else if(Notification.permission==="denied")t="Bloquées par le téléphone : autorise-les dans les réglages du site.";
+  else if(Notification.permission==="granted"&&notifOn)t="Activées.";
+  else t="Désactivées.";
+  $("notifEtat").textContent=t;
+}
+$("regNotif").onclick=async function(){
+  if(!("Notification" in window)){toast("Ce navigateur ne gère pas les notifications.");return}
+  var p=Notification.permission;if(p==="default")p=await Notification.requestPermission();
+  if(p==="granted"){st("kova_notif","1");notifOn=true;toast("Notifications activées.")}else toast("Refusé. Autorise-les dans les réglages du téléphone.");
+  notifEtat();
+};
+$("regNotifOff").onclick=function(){st("kova_notif","0");notifOn=false;notifEtat();toast("Notifications désactivées.")};
+function badge(){
+  var n=0;for(var k in nonlus)n+=nonlus[k];
+  $("tChat").textContent="Chat Kova"+(n?" ("+(n>9?"9+":n)+")":"");
+  document.title=(n?"("+n+") ":"")+"Kova Mobile";
+}
+function notifier(nom,texte,id){
+  if(!document.hidden){toast("💬 "+nom+" : "+texte.slice(0,60));return}
+  try{
+    if(!notifOn||!("Notification" in window)||Notification.permission!=="granted")return;
+    var o={body:texte.slice(0,140),icon:"icon.svg",tag:"kova-"+id,renotify:true,vibrate:[120,60,120]};
+    if(swReg&&swReg.showNotification)swReg.showNotification("Kova · "+nom,o);else new Notification("Kova · "+nom,o);
+  }catch(e){}
+}
+var veilleEnCours=false;
+async function veille(){
+  if(veilleEnCours||!st("kova_sb"))return;
+  veilleEnCours=true;
+  try{
+    if(vu===null){vu=Number(await rpc("mon_dernier_message")||0);st("kova_vu",String(vu));return}
+    var ms=await rpc("mes_nouveaux",{p_apres:vu})||[];
+    ms.forEach(function(m){
+      vu=Math.max(vu,m.id);
+      var lu=autre&&autre.id===m.kova_id&&onglet==="Chat"&&!document.hidden;
+      if(lu)return;
+      nonlus[m.kova_id]=(nonlus[m.kova_id]||0)+1;
+      notifier(m.nom,m.texte,m.kova_id);
+    });
+    if(ms.length){st("kova_vu",String(vu));badge()}
+  }catch(e){}finally{veilleEnCours=false}
+}
+setInterval(veille,8000);setTimeout(veille,2500);
+document.addEventListener("visibilitychange",function(){if(!document.hidden)veille()});
+notifEtat();
 /* ---------- chat : ecrans ---------- */
 var profil=null,autre=null,minuteur=null,dernier=0;
 function chatStop(){clearInterval(minuteur);minuteur=null}
@@ -358,7 +415,7 @@ async function ecranContacts(silencieux){
   if(rec.length){h+='<h3>Demandes reçues</h3>';rec.forEach(function(c){h+='<div class="card"><b>'+esc(c.nom)+'</b> <span class="dim small">'+fmtId(c.kova_id)+'</span><div class="row" style="margin-top:8px"><button class="main" data-a="accepter" data-i="'+c.kova_id+'">Accepter</button><button data-a="refuser" data-i="'+c.kova_id+'">Refuser</button><button class="danger" data-a="bloquer" data-i="'+c.kova_id+'">Bloquer</button></div></div>'})}
   h+='<h3>Mes contacts</h3>';
   if(!ok.length)h+='<p class="dim small">Aucun contact pour le moment. Ajoute quelqu\'un avec son numéro.</p>';
-  ok.forEach(function(c){h+='<div class="card row" data-o="'+c.kova_id+'" data-n="'+esc(c.nom)+'" style="cursor:pointer"><div><b>'+esc(c.nom)+'</b><div class="small dim">'+fmtId(c.kova_id)+'</div></div><span class="sp"></span><span class="dim">›</span></div>'});
+  ok.forEach(function(c){h+='<div class="card row" data-o="'+c.kova_id+'" data-n="'+esc(c.nom)+'" style="cursor:pointer"><div><b>'+esc(c.nom)+'</b><div class="small dim">'+fmtId(c.kova_id)+(nonlus[c.kova_id]?' · <span class="id">'+nonlus[c.kova_id]+' nouveau(x)</span>':'')+'</div></div><span class="sp"></span><span class="dim">›</span></div>'});
   if(env.length){h+='<h3>Demandes envoyées</h3>';env.forEach(function(c){h+='<div class="card row"><div><b>'+esc(c.nom)+'</b><div class="small dim">En attente de réponse</div></div></div>'})}
   var b=$("chatBody"),sv=b.scrollTop,aIn=$("addIn")?$("addIn").value:"";
   if(silencieux&&document.activeElement&&document.activeElement.id==="addIn")return;
@@ -375,7 +432,7 @@ async function ecranContacts(silencieux){
   b.querySelectorAll("[data-o]").forEach(function(x){x.onclick=function(){ecranConv(Number(x.dataset.o),x.dataset.n)}});
 }
 async function ecranConv(id,nom){
-  chatStop();autre={id:id,nom:nom};dernier=0;
+  chatStop();autre={id:id,nom:nom};dernier=0;delete nonlus[id];badge();
   var b=$("chatBody");
   b.innerHTML='<div style="display:flex;flex-direction:column;height:100%;margin:-14px -16px"><div class="row" style="padding:10px 12px;border-bottom:1px solid var(--bord)"><button id="back">‹ Retour</button><b>'+esc(nom)+'</b><span class="sp"></span><button class="ghost" id="menu">⋯</button></div><div class="scroll" id="conv"></div><div class="bar"><textarea id="cIn" rows="1" maxlength="500" placeholder="Message…"></textarea><button class="main" id="cSend">Envoyer</button></div></div>';
   $("back").onclick=chatOuvrir;
@@ -393,7 +450,7 @@ async function lire(){
   if(!autre)return;
   try{
     var ms=await rpc("mes_messages",{p_kova_id:autre.id,p_apres:dernier})||[];
-    var c=$("conv");if(!c||!ms.length)return;
+    var c=$("conv");if(!c||!ms.length)return;delete nonlus[autre.id];badge();
     var bas=c.scrollHeight-c.scrollTop-c.clientHeight<80;
     ms.forEach(function(m){dernier=Math.max(dernier,m.id);var d=document.createElement("div");d.className="msg "+(m.de_moi?"moi":"lui");d.textContent=m.texte;c.appendChild(d)});
     if(bas||dernier===ms[ms.length-1].id&&c.children.length===ms.length)c.scrollTop=c.scrollHeight;
